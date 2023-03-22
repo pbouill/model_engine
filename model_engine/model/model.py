@@ -10,6 +10,7 @@ RECT_LABEL_TYPE = 'RectangleLabels'
 IMG_TYPE = 'Image'
 
 LABEL_CONFIG_FILE = '.data/label_config.xml'
+MODEL_FILE = '.data/best.pt'
 
 
 class YOLOResults:
@@ -72,60 +73,10 @@ class YOLOResult:
             'image_rotation': 0,
             'value': self.value
         }
-    
-"""
-## Example prediction json format
-[{
-  "data": {
-    "image": "/static/samples/sample.jpg" 
-  },
-
-  "predictions": [{
-    "model_version": "one",
-    "score": 0.5,
-    "result": [
-      {
-        "id": "result1",
-        "type": "rectanglelabels",        
-        "from_name": "label", "to_name": "image",
-        "original_width": 600, "original_height": 403,
-        "image_rotation": 0,
-        "value": {
-          "rotation": 0,          
-          "x": 4.98, "y": 12.82,
-          "width": 32.52, "height": 44.91,
-          "rectanglelabels": ["Airplane"]
-        }
-      },
-      {
-        "id": "result2",
-        "type": "rectanglelabels",        
-        "from_name": "label", "to_name": "image",
-        "original_width": 600, "original_height": 403,
-        "image_rotation": 0,
-        "value": {
-          "rotation": 0,          
-          "x": 75.47, "y": 82.33,
-          "width": 5.74, "height": 7.40,
-          "rectanglelabels": ["Car"]
-        }
-      },
-      {
-        "id": "result3",
-        "type": "choices",
-        "from_name": "choice", "to_name": "image",
-        "value": {
-          "choices": ["Airbus"]
-      }
-    }]
-  }]
-}]
-"""
-
 
 # good example here: https://github.com/heartexlabs/label-studio/discussions/1623#discussioncomment-1507940
 class YOLOModel(LabelStudioMLBase):
-    def __init__(self, model_file: str, **kwargs):
+    def __init__(self, model_file: str = MODEL_FILE, **kwargs):
         self.model = YOLO(model_file)
         with open(LABEL_CONFIG_FILE, "r") as f:
             label_config = f.read()
@@ -159,81 +110,15 @@ class YOLOModel(LabelStudioMLBase):
             predictions.append(pred)
         return predictions
 
-        #     print(preds)
-        #     for r in preds.pandas().xyxy[0].rows:
-        #         predictions.append(
-        #             {
-        #                 'result': [
-        #                     {
-        #                         'from_name': from_name,
-        #                         'to_name': to_name,
-        #                         'type': 'RectangleLabels',
-        #                         'value': {
-        #                             'Label': [
-        #                                 'My Label'
-        #                             ]
-        #                         }
-        #                     }
-        #                 ],
-        #                 # optionally you can include prediction scores that you can use to sort the tasks and do active learning
-        #                 'score': 0.987
-        #             }
-        #         )
-        # return predictions
     
     def fit(self, completions, workdir=None, **kwargs):
         # ... do some heavy computations, get your model and store checkpoints and resources
         return {'checkpoints': 'my/model/checkpoints'}  # <-- you can retrieve this dict as self.train_output in the subsequent calls
-    
-    # def _format_pred(self, pred):
-    #     names = pred.names
-    #     for b in pred.boxes:
-    #         r = YOLOResultValue(b, names)
-    #         print(r.value)
 
     
 if __name__ == '__main__':
     mod = YOLOModel('.data/best.pt')
-    # print(f'Model: {dir(mod.model)}')
-    # print(f'model.model: {dir(mod.model.model)}')
-    # exit()
+
     results = mod.model('.data/0.png')[0]
     preds = YOLOResults(results, mod.from_name, mod.to_name, mod.model.model.pt_path)
     print(preds.prediction)
-    # print(f'predictions: {preds}')
-    # print(f'Total of {len(preds)} predictions')
-
-    # print(dir(preds))
-    # print(f'predictions: {preds["predictions"].pandas().xyxy[0]}')
-    # predictions = []
-    # for p in preds:
-    #     res = YOLOResults(p, mod.from_name, mod.to_name, mod.model.cfg)
-    #     predictions.append(res.prediction)
-        # print(res.result)
-    #     # print(p, dir(p))
-    #     # print(f'Pandas: {p.pandas()}')
-    #     # print(f'Keys: {p.keys}')
-        
-    #     names = p.names
-    #     # probs = p.probs
-    #     # path = p.path
-
-    #     print(f'Names: {names}')
-        # print(f'Probs: {probs}')
-        # print(f'Path: {path}')
-        # for b in p.boxes:
-            # print(b, dir(b))
-            # print(f'Cls: {b.cls}')
-            # print(f'ID: {b.id}')
-            # print(f'Shape: {b.shape}')
-            # print(f'Orig Shape: {b.orig_shape}')
-            # print(f'XYXY: {b.xyxy}')
-            # print(f'XYXYn: {b.xyxyn}')
-            # print(f'XYWH: {b.xywh}')
-            # print(f'XYWHn: {b.xywhn}')
-            # exit()
-            # print(f'Pandas: {b.pandas()}')
-        # print(p.pandas())
-        # mod._format_pred(p)
-    # print(predictions)
-    

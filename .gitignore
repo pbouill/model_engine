@@ -1,5 +1,6 @@
 # Application data
 .data/*
+ultralytics_ml_backend
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
