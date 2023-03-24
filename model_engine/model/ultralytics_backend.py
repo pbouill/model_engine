@@ -16,21 +16,25 @@ DEFAULT_FORMAT = ('%(asctime)s.%(msecs)06d :: %(levelname)s :: '
 logging.basicConfig(format=DEFAULT_FORMAT)
 logger = logging.getLogger(__name__)
 coloredlogs.install(fmt=DEFAULT_FORMAT, logger=logger, level='INFO')
+logger.setLevel(logging.DEBUG)
 
 #TODO: Patch label_studio_ml\model.py -- no need for key in the _current_model -- not a dict!
 
-from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.model import LabelStudioMLBase, LABEL_STUDIO_ML_BACKEND_V2_DEFAULT
 from label_studio_ml.utils import get_single_tag_keys
 
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Boxes, Results
 from ultralytics.yolo.data import YOLODataset
 
+LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = True
+
 RECT_LABEL_TYPE = 'RectangleLabels'
 IMG_TYPE = 'Image'
 
-LABEL_CONFIG_FILE = '.data/label_config.xml'
-MODEL_FILE = '.data/best.pt'
+# LABEL_CONFIG_FILE = '.data/label_config.xml'
+# MODEL_FILE = '.data/best.pt'
+SEED_MODEL = 'models/yolov8n.pt'
 
 LS_HOSTNAME = 'http://cacplcemudev.corp.hatchglobal.com:8080'
 
@@ -122,7 +126,8 @@ class YOLOModel(LabelStudioMLBase):
 
         # self.model = YOLO(MODEL_FILE)
         self.model = YOLO('models/yolov8n.pt')
-        self.project = None
+        # self._project_key = kwargs.get('project_key', None)
+        # self.project = None
 
         if 'access_token' in kwargs:
             logger.debug(f'...storing the access token for later use: {kwargs["access_token"]}')
@@ -134,7 +139,7 @@ class YOLOModel(LabelStudioMLBase):
         if 'label_config' not in kwargs:
             with open(LABEL_CONFIG_FILE, "r") as f:
                 kwargs['label_config'] = f.read()
-        super().__init__(**kwargs)
+        super().__init__(model_dir=MODEL_DIR, **kwargs)
         # print(f'MLBase dir: {dir(self)}')
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
             self.parsed_label_config,
@@ -146,6 +151,8 @@ class YOLOModel(LabelStudioMLBase):
         if self.train_output:
             logger.info(f'loading trained model: {self.train_output}')
             self.model.load(self.train_output['model_path'])
+        else:
+            logger.warning(f'could not locate any previously trained models... starting from scratch with: {SEED_MODEL}')
     
     def _get_image(self, task):
         url = task['data'][self.value]
@@ -162,9 +169,9 @@ class YOLOModel(LabelStudioMLBase):
     def api_get_json(self, url):
         return json.loads(self.api_get(url).content)
 
-    def predict(self, tasks, model_file=MODEL_FILE, **kwargs):
+    def predict(self, tasks, **kwargs):
         logger.info('##### PREDICT CALL! #####')
-        model = YOLO(model_file)
+        # model = YOLO(model_file)
         predictions = []
         logger.info(f'Total number of tasks received: {len(tasks)}')
         for task in tasks:
@@ -174,7 +181,7 @@ class YOLOModel(LabelStudioMLBase):
             else:
                 img = self._get_image(task)[0]
 
-            results = model(img)[0]
+            results = self.model(img)[0]
             pred = YOLOResults(result=results, from_name=self.from_name, to_name=self.to_name)
             predictions.append(pred.prediction)
         return predictions
@@ -183,23 +190,18 @@ class YOLOModel(LabelStudioMLBase):
         logger.info('##### TRAINING CALL! #####')
         logger.info(f'Fit data working directory: {workdir}')
         task_list = list(tasks)
-
-        if (not len(task_list) > 0) and (dataset is None): 
-            logger.warning('...exiting, no tasks or dataset provided to train on...')
-            return
         
-        if dataset is None:
-            dataset_path = Path(DATASET_DIR, Path(workdir).name)
-            dataset = self.create_dataset(dataset_path=dataset_path, task_list=task_list, names=[], ds_split=ds_split)
-
-        proj = self.project
-        if proj is None:
+        if self.train_output is not None:  #TODO: handle this more cleanly -- perhaps a task list hash map to dataset?
+            dataset = self.train_output['data']['yaml_file']  # if no new tasks are submitted... just re-train on the old data for now...
+        elif dataset is None:
             if len(task_list) > 0:
-                self.get_project(task_list[0])
-        if proj is None:
-            proj = Path(workdir).name
+                dataset_path = Path(DATASET_DIR, Path(workdir).name)
+                dataset = self.create_dataset(dataset_path=dataset_path, task_list=task_list, names=[], ds_split=ds_split)
+            else:
+                logger.warning('...exiting, no tasks or dataset provided to train on...')
+                return
 
-        self.model.train(data=str(dataset), epochs=epochs, project='models/'+proj)
+        self.model.train(data=str(dataset), epochs=epochs, project=workdir)
         train_result = {
             'checkpoints': self.model.trainer.wdir.as_posix(),
             'model_path': self.model.trainer.best.as_posix(),
@@ -214,14 +216,13 @@ class YOLOModel(LabelStudioMLBase):
 
     def create_dataset(self, dataset_path: Path, task_list, names = [], ds_split = TRAIN_VAL_TEST_WEIGHT):
         logger.info(f'creating a new dataset: {dataset_path}')
+        if not dataset_path.exists():
+            dataset_path.mkdir()
 
         train_path = Path(dataset_path, 'train')
         val_path = Path(dataset_path, 'val')
         test_path = Path(dataset_path, 'test')
-        for p in [dataset_path, train_path, val_path, test_path]: 
-            if not p.exists():
-                p.mkdir()
-
+        
         cls_dict = {}
         # check the names the model is expecting first...
         for i, n in enumerate(names):
@@ -234,29 +235,24 @@ class YOLOModel(LabelStudioMLBase):
         # form the dictionary for the dataset.yml
         ds_json = {
             'path': str(dataset_path.resolve()),
-            'train': 'train',
-            'val': 'val',
-            'test': 'test',
             'names': list(cls_dict.keys())
         }
 
-        ds_yml_path = Path(dataset_path, 'dataset.yaml')
-        with open(str(ds_yml_path), 'w') as yml:
-            yaml.dump(ds_json, yml)
-
-        num_tasks = len(task_list)
+        num_tasks = len(task_list)  # get the total number of tasks/images
         split_ratio = np.array(ds_split) / sum(ds_split)
-        num_train = int(num_tasks * split_ratio[0])
-        num_val = int(num_tasks * split_ratio[1])
-        num_test = num_tasks - num_train - num_val
+        num_val = int(num_tasks * split_ratio[1]) # compute the number of validation images
+        if len(split_ratio) < 3:  # if we don't even have a weight for the test split... ignore/treat as zero
+            num_test = 0
+        else:
+            num_test = int(num_tasks * split_ratio[2])
+        num_train = num_tasks - num_val - num_test  # training data is whatever is left over...
+
         logger.info(f'...will use random {num_train}/{num_tasks} for training, {num_val}/{num_tasks} for training validation, and {num_test}/{num_tasks} for final testing')
         
         random.shuffle(task_list)  # shuffle this bad boy up to ensure a good mix of images...
 
         for idx, t in enumerate(task_list):
-            if self.project is None:
-                self.get_project(t)
-
+            logger.info(f'[{idx}/{num_tasks}] processing for dataset: {dataset_path}')
             logger.debug(t)
             if idx < num_train:
                 save_path = train_path
@@ -264,12 +260,18 @@ class YOLOModel(LabelStudioMLBase):
                 save_path = val_path
             else:
                 save_path = test_path
+
+            if not save_path.name in ds_json:
+                if not save_path.exists():
+                    save_path.mkdir()
+                ds_json[save_path.name] = save_path.name
+
+
             img, f = self._get_image(t)
-            img.save(str(Path(save_path, f.name)))
-            # file_list.append(f.name)
-            annotations = []
+            img.save(str(Path(save_path, f.name)))  # save each image
             
-            if 'annotations' in t:
+            annotations = []
+            if 'annotations' in t:  # start parsing the annotations per image/task
                 for a in t['annotations']:
                     if a['was_cancelled']:
                         print(f'Annotation [{a["id"]}] was cancelled... checking the next')
@@ -280,9 +282,14 @@ class YOLOModel(LabelStudioMLBase):
                             v = LabelStudioResultValue(r['value'], cls_dict=cls_dict)
                             annotations.append(v.annotation + '\n')
                     break  # we already found a valid annotation list, stop looking... will maybe get duplicates(?)
-            with open(str(Path(save_path, f.stem + '.txt')), 'w') as f:
+            
+            with open(str(Path(save_path, f.stem + '.txt')), 'w') as f:  # write the annotations to a txt file per image
                 f.writelines(annotations)
         
+        ds_yml_path = Path(dataset_path, 'dataset.yaml')
+        with open(str(ds_yml_path), 'w') as yml:
+            yaml.dump(ds_json, yml)
+
         return ds_yml_path  # return the path to the dataset we created...
     
 
@@ -290,7 +297,6 @@ class YOLOModel(LabelStudioMLBase):
         if 'project' in task:
             proj = self.api_get_json(url = f'/api/projects/{task["project"]}/')
             logger.info(f'Got project info: {proj}')
-            self.project = proj['title']
             return proj
         
     
@@ -298,4 +304,3 @@ if __name__ == '__main__':
     mod = YOLO(MODEL_FILE)
     ds = Path('datasets/1679674886/dataset.yaml')
     mod.train(data=str(ds.absolute()), project='models/1200L', epochs=TRAIN_EPOCHS)
-    
