@@ -1,6 +1,9 @@
 # Application data
-.data/*
+.data
+datasets/*
+models/*
 ultralytics_ml_backend
+*.old*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
