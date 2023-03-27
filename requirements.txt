@@ -1,5 +1,5 @@
 rq~=1.13.0
 # label-studio-ml~=1.0.9
 git+https://github.com/heartexlabs/label-studio-ml-backend.git
-ultralytics~=8.0.55
+ultralytics~=8.0.57
 coloredlogs~=15.0.1
