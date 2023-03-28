@@ -45,10 +45,7 @@ def get_kwargs_from_config(config_path=_DEFAULT_CONFIG_PATH):
 
 
 if __name__ == "__main__":
-    
-
     kwargs = get_kwargs_from_config()
-    print(f'file: {__file__}')
 
     parser = argparse.ArgumentParser(description='Label studio')
     parser.add_argument(
@@ -100,7 +97,7 @@ if __name__ == "__main__":
             else:
                 param[k] = v
         return param
-    
+
     if args.kwargs:
         kwargs.update(parse_kwargs())
 
@@ -108,7 +105,6 @@ if __name__ == "__main__":
         print('Check "' + YOLOModel.__name__ + '" instance creation..')
         model = YOLOModel(**kwargs)
     
-    # if 'model_dir' in kwargs
     print(args, type(args), dir(args), args.model_dir)
 
     app = init_app(
