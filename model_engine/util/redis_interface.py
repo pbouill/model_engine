@@ -1,7 +1,7 @@
 from .log import logger
 import redis
 
-DEFUALT_CONNECTION = redis.Redis(host='localhost', port=6379)
+DEFUALT_CONNECTION = redis.Redis()
 
 TYPES = {
     b'list': list,

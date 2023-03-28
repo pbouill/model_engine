@@ -45,6 +45,11 @@ def get_kwargs_from_config(config_path=_DEFAULT_CONFIG_PATH):
 
 
 if __name__ == "__main__":
+    
+
+    kwargs = get_kwargs_from_config()
+    print(f'file: {__file__}')
+
     parser = argparse.ArgumentParser(description='Label studio')
     parser.add_argument(
         '-p', '--port', dest='port', type=int, default=9090,
@@ -59,10 +64,10 @@ if __name__ == "__main__":
         '-d', '--debug', dest='debug', action='store_true',
         help='Switch debug mode')
     parser.add_argument(
-        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=None,
+        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=kwargs.pop('log_level', None),
         help='Logging level')
     parser.add_argument(
-        '--model-dir', dest='model_dir', default=os.path.dirname(__file__),
+        '--model-dir', dest='model_dir', default=kwargs.pop('model_dir', os.path.dirname(__file__)),
         help='Directory where models are stored (relative to the project directory)')
     parser.add_argument(
         '--check', dest='check', action='store_true',
@@ -95,15 +100,16 @@ if __name__ == "__main__":
             else:
                 param[k] = v
         return param
-
-    kwargs = get_kwargs_from_config()
-
+    
     if args.kwargs:
         kwargs.update(parse_kwargs())
 
     if args.check:
         print('Check "' + YOLOModel.__name__ + '" instance creation..')
         model = YOLOModel(**kwargs)
+    
+    # if 'model_dir' in kwargs
+    print(args, type(args), dir(args), args.model_dir)
 
     app = init_app(
         model_class=YOLOModel,
@@ -121,6 +127,7 @@ else:
     app = init_app(
         model_class=YOLOModel,
         model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
+        dataset_dir=os.environ.get('DATASET_DIR', os.path.dirname(__file__)),
         redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
         redis_host=os.environ.get('REDIS_HOST', 'localhost'),
         redis_port=os.environ.get('REDIS_PORT', 6379)

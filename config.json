@@ -1,0 +1,15 @@
+{
+    "log_level": "INFO",
+    "dataset_dir": "/datasets",
+    "model_dir": "/models",
+    "image_dir": "/images",
+    "label_studio_host": "http://cacplcemudev.corp.hatchglobal.com:8080",
+    "train_config": {
+        "epochs": 50
+    },
+    "dataset_config": {
+        "train_weight": 85,
+        "val_weight": 15,
+        "test_weight": 0
+    }
+}
