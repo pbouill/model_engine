@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 import json
 import numpy as np
+import rq
 
 import logging
 import coloredlogs
