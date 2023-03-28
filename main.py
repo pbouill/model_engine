@@ -1,0 +1,1 @@
+from model_engine.model.ultralytics_backend import YOLOModel

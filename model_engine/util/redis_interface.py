@@ -40,8 +40,11 @@ def redis_set(key, value, conn=DEFUALT_CONNECTION):
     else:
         logger.error('could not determine proper type for setting value on remote server...')
 
+def redis_delete(key, conn=DEFUALT_CONNECTION):
+    conn.delete(key)
+
 if __name__ == '__main__':
     redis_set('foo', ['bar','baz'])
     foo = redis_get('foo')
+    print(redis_get('eek'))
     print(foo)
-    
