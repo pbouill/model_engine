@@ -127,7 +127,7 @@ class YOLOModel(LabelStudioMLBase):
             RECT_LABEL_TYPE,
             IMG_TYPE
         )
-        
+        logger.info(f'{self} local path is: {self.get_local_path('')}')
         self.model = YOLO('models/yolov8n.pt')
         # if the mdoel has updates from training... load it!
         if self.train_output:
