@@ -4,6 +4,8 @@ datasets/*
 models/*
 ultralytics_ml_backend
 *.old*
+*.code-workspace
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

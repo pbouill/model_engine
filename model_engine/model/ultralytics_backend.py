@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 import json
 import numpy as np
-import rq
+import redis
 
 import logging
 import coloredlogs
@@ -18,6 +18,8 @@ logging.basicConfig(format=DEFAULT_FORMAT)
 logger = logging.getLogger(__name__)
 coloredlogs.install(fmt=DEFAULT_FORMAT, logger=logger, level='INFO')
 logger.setLevel(logging.DEBUG)
+
+REDIS_SRV = redis.Redis(host='localhost',port=6379)
 
 #TODO: Patch label_studio_ml\model.py -- no need for key in the _current_model -- not a dict!
 
@@ -300,8 +302,20 @@ class YOLOModel(LabelStudioMLBase):
             logger.info(f'Got project info: {proj}')
             return proj
         
+def redis_get(key):
+    t = REDIS_SRV.type(key)
+    logger.info(f'Key [{key} is type: {t}]')
+        
     
 if __name__ == '__main__':
-    mod = YOLO(MODEL_FILE)
-    ds = Path('datasets/1679674886/dataset.yaml')
-    mod.train(data=str(ds.absolute()), project='models/1200L', epochs=TRAIN_EPOCHS)
+    if REDIS_SRV.exists('foo'):
+        REDIS_SRV.delete('foo')
+    REDIS_SRV.lpush('foo','bar','bar2', 'bar3')
+    print(REDIS_SRV.type('foo'))
+    val = REDIS_SRV.get('foo')
+    val2 = REDIS_SRV.get('garbage')
+    print(val, val2)
+    
+    # mod = YOLO(MODEL_FILE)
+    # ds = Path('datasets/1679674886/dataset.yaml')
+    # mod.train(data=str(ds.absolute()), project='models/1200L', epochs=TRAIN_EPOCHS)
