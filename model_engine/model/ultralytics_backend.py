@@ -142,7 +142,7 @@ class YOLOModel(LabelStudioMLBase):
         else:
             logger.warning(f'could not locate any previously trained models... starting from scratch with: {SEED_MODEL}')
         
-        for k, v in self.__dict__items():
+        for k, v in self.__dict__.items():
             logger.info(f'{k}: {v}')
     
     def _get_image(self, task):
