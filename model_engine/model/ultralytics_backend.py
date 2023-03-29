@@ -149,10 +149,10 @@ class YOLOModel(LabelStudioMLBase):
         url = task['data'][self.value]
         logger.debug(f'...getting image: {url}')
         if self.label_studio_media_path is not None:
-            p = self.label_studio_media_path.joinpath(url)
-            p2 = Path(self.label_studio_media_path, url)
+            p = Path(self.label_studio_media_path + url)
+            # p2 = Path(self.label_studio_media_path, url)
             logger.info(f'...trying to access from the label_studio_media volume/dir: {p}')
-            logger.info(f'...maybe try: {p2}')
+            # logger.info(f'...maybe try: {p2}')
             return Image.open(p.resolve()), p
 
         # img = None
