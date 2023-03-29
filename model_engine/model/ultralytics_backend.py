@@ -131,9 +131,9 @@ class YOLOModel(LabelStudioMLBase):
         self.model = YOLO('yolov8n.pt')
         self.dataset_path = Path(kwargs.pop('dataset_dir'), 'datasets')
         self.image_path = Path(kwargs.pop('image_dir'), 'images')
-        self.label_studio_media_path = None
-        if 'label_studio_media_dir' in kwargs:
-            self.label_studio_media_dir = Path(kwargs.pop('label_studio_media_dir'))
+        self.label_studio_media_path = kwargs.pop('label_studio_media_dir', None)
+        if self.label_studio_media_path is not None:
+            self.label_studio_media_path = Path(kwargs.pop('label_studio_media_dir'))
         # if the mdoel has updates from training... load it!
         if self.train_output:
             logger.info(f'loading trained model: {self.train_output}')
