@@ -150,8 +150,8 @@ class YOLOModel(LabelStudioMLBase):
         logger.debug(f'...getting image: {url}')
         if self.label_studio_media_path is not None:
             p = self.label_studio_media_path.joinpath(url)
-            logger.debug(f'...trying to access from the label_studio_media volume/dir: {p}')
-            return Image.open(str(self.label_studio_media_path.joinpath(url))), p
+            logger.info(f'...trying to access from the label_studio_media volume/dir: {p}')
+            return Image.open(str(p)), p
 
         # img = None
         # img_loc = redis_get(url)
