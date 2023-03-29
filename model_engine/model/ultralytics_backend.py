@@ -1,5 +1,5 @@
 from ..util.log import logger
-from ..util.redis_interface import redis_get, redis_set, redis_delete
+# from ..util.redis_interface import redis_get, redis_set, redis_delete
 
 from PIL import Image
 import requests
@@ -15,7 +15,7 @@ from label_studio_ml.utils import get_single_tag_keys
 
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Boxes, Results
-from ultralytics.yolo.data import YOLODataset
+# from ultralytics.yolo.data import YOLODataset
 
 LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = True
 
@@ -112,7 +112,7 @@ class YOLOModel(LabelStudioMLBase):
     ACCESS_TOKEN = None
     def __init__(self, **kwargs):
         logger.info(f'Creating a new model object with kwargs: {kwargs}')
-        kwargs['hostname'] = LS_HOSTNAME
+        # kwargs['hostname'] = LS_HOSTNAME
 
         if 'access_token' in kwargs:
             logger.debug(f'...storing the access token for later use: {kwargs["access_token"]}')
@@ -127,8 +127,13 @@ class YOLOModel(LabelStudioMLBase):
             RECT_LABEL_TYPE,
             IMG_TYPE
         )
-        logger.info(f'{self} local path is: {self.get_local_path("")}')
+        # logger.info(f'{self} local path is: {self.get_local_path("")}')
         self.model = YOLO('yolov8n.pt')
+        self.dataset_path = Path(kwargs.pop('dataset_dir'), 'datasets')
+        self.image_path = Path(kwargs.pop('image_dir'), 'images')
+        self.label_studio_media_path = None
+        if 'label_studio_media_dir' in kwargs:
+            self.label_studio_media_dir = Path(kwargs.pop('label_studio_media_dir'))
         # if the mdoel has updates from training... load it!
         if self.train_output:
             logger.info(f'loading trained model: {self.train_output}')
@@ -139,16 +144,16 @@ class YOLOModel(LabelStudioMLBase):
     def _get_image(self, task):
         url = task['data'][self.value]
         logger.debug(f'...getting image: {url}')
-        img = None
-        img_loc = redis_get(url)
-        if img_loc is not None:
-            if Path(img_loc).exists():
-                logger.info('...found local copy of the image {loc_img} using that!')
-                img = Image.open(img_loc)
-                return img, Path(img_loc)
-            else:
-                logger.warning('...image path stored in redis, but could not be located here... removing the key')
-                redis_delete(url)
+        # img = None
+        # img_loc = redis_get(url)
+        # if img_loc is not None:
+        #     if Path(img_loc).exists():
+        #         logger.info('...found local copy of the image {loc_img} using that!')
+        #         img = Image.open(img_loc)
+        #         return img, Path(img_loc)
+        #     else:
+        #         logger.warning('...image path stored in redis, but could not be located here... removing the key')
+        #         redis_delete(url)
 
         response = self.api_get(url)
         img = Image.open(BytesIO(response.content))
@@ -188,8 +193,8 @@ class YOLOModel(LabelStudioMLBase):
             dataset = self.train_output['data']['yaml_file']  # if no new tasks are submitted... just re-train on the old data for now...
         elif dataset is None:
             if len(task_list) > 0:
-                dataset_path = Path(DATASET_DIR, Path(workdir).name)
-                dataset = self.create_dataset(dataset_path=dataset_path, task_list=task_list, names=[], ds_split=ds_split)
+                # dataset_path = Path(DATASET_DIR, Path(workdir).name)
+                dataset = self.create_dataset(task_list=task_list, ds_split=ds_split)
             else:
                 logger.warning('...exiting, no tasks or dataset provided to train on...')
                 return
@@ -207,25 +212,25 @@ class YOLOModel(LabelStudioMLBase):
         return train_result
     
 
-    def create_dataset(self, dataset_path: Path, task_list, names = [], ds_split = TRAIN_VAL_TEST_WEIGHT):
-        hash = hash(tuple(task_list))
-        logger.info(f'searching local resources with dataset hash: {hash}')
-        hash_str = f'ds_{hash}'
-        ds_yml_path = redis_get(hash_str)
-        if (ds_yml_path is not None) and Path(ds_yml_path).exists():
+    def create_dataset(self, task_list, ds_split = TRAIN_VAL_TEST_WEIGHT):
+        tasklist_hash = hash(tuple(task_list))
+        logger.info(f'searching local resources with dataset hash: {tasklist_hash}')
+        dataset_path = self.dataset_path.joinpath(f'{tasklist_hash}')
+        ds_yml_path = dataset_path.joinpath('dataset.yaml')
+        if ds_yml_path.exists():
             return ds_yml_path
         
         logger.info(f'could not locate dataset with matching task hash, creating a new dataset: {dataset_path}')
         if not dataset_path.exists():
             dataset_path.mkdir()
 
-        train_path = Path(dataset_path, 'train')
-        val_path = Path(dataset_path, 'val')
-        test_path = Path(dataset_path, 'test')
+        train_path = dataset_path.joinpath('train')
+        val_path = dataset_path.joinpath('val')
+        test_path = dataset_path.joinpath('test')
         
         cls_dict = {}
         # check the names the model is expecting first...
-        for i, n in enumerate(names):
+        for i, n in enumerate(self.model.names):
             cls_dict[n] = i  # assign a cls_id from zero, incrementing upwards
         # add any missing labels to our class dictionary
         for l in self.labels_in_config:
@@ -261,7 +266,7 @@ class YOLOModel(LabelStudioMLBase):
             else:
                 save_path = test_path
 
-            if not save_path.name in ds_json:
+            if save_path.name not in ds_json:
                 if not save_path.exists():
                     save_path.mkdir()
                 ds_json[save_path.name] = save_path.name
@@ -270,7 +275,7 @@ class YOLOModel(LabelStudioMLBase):
             img, f = self._get_image(t)
             img_path = Path(save_path, f.name)
             img.save(str(img_path))  # save each image
-            redis_set(f, str(img_path))
+            # redis_set(f, str(img_path))
             
             annotations = []
             if 'annotations' in t:  # start parsing the annotations per image/task
@@ -285,14 +290,14 @@ class YOLOModel(LabelStudioMLBase):
                             annotations.append(v.annotation + '\n')
                     break  # we already found a valid annotation list, stop looking... will maybe get duplicates(?)
             
-            with open(str(Path(save_path, f.stem + '.txt')), 'w') as f:  # write the annotations to a txt file per image
+            with open(str(save_path.joinpath(f.stem + '.txt')), 'w') as f:  # write the annotations to a txt file per image
                 f.writelines(annotations)
         
-        ds_yml_path = Path(dataset_path, 'dataset.yaml')
+        # ds_yml_path = Path(dataset_path, 'dataset.yaml')
         with open(str(ds_yml_path), 'w') as yml:
             yaml.dump(ds_json, yml)
 
-        redis_set(hash_str, ds_yml_path)
+        # redis_set(hash_str, ds_yml_path)
         return ds_yml_path  # return the path to the dataset we created...
     
 

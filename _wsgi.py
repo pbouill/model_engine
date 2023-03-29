@@ -123,8 +123,10 @@ else:
     app = init_app(
         model_class=YOLOModel,
         model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        dataset_dir=os.environ.get('DATASET_DIR', os.path.dirname(__file__)),
         redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
         redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
+        redis_port=os.environ.get('REDIS_PORT', 6379),
+        dataset_dir=os.environ.get('DATASET_DIR', 'datasets'),
+        image_dir=os.environ.get('IMAGE_DIR', 'images'),
+        label_studio_media_dir=os.environ.get('LABEL_STUDIO_MEDIA_DIR', None),
     )
