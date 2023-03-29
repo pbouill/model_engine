@@ -141,10 +141,18 @@ class YOLOModel(LabelStudioMLBase):
             self.model.load(self.train_output['model_path'])
         else:
             logger.warning(f'could not locate any previously trained models... starting from scratch with: {SEED_MODEL}')
+        
+        for k, v in self.__dict__items():
+            logger.info(f'{k}: {v}')
     
     def _get_image(self, task):
         url = task['data'][self.value]
         logger.debug(f'...getting image: {url}')
+        if self.label_studio_media_path is not None:
+            p = self.label_studio_media_path.joinpath(url)
+            logger.debug(f'...trying to access from the label_studio_media volume/dir: {p}')
+            return Image.open(str(self.label_studio_media_path.joinpath(url))), p
+
         # img = None
         # img_loc = redis_get(url)
         # if img_loc is not None:
@@ -161,9 +169,12 @@ class YOLOModel(LabelStudioMLBase):
         return img, Path(url)
     
     def api_get(self, url):
+        hn = self.hostname
+        if not hn.startswith('http'):
+            hn = 'http://' + hn
         headers = {'Authorization': 'Token ' + self.access_token}
-        logger.debug(f'...requesting data from: {self.hostname + url} with headers {headers}')
-        return requests.get(self.hostname + url, stream=True, headers=headers)
+        logger.debug(f'...requesting data from: {hn + url} with headers {headers}')
+        return requests.get(hn + url, stream=True, headers=headers)
     
     def api_get_json(self, url):
         return json.loads(self.api_get(url).content)
